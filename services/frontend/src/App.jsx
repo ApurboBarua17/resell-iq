@@ -64,6 +64,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
+      <div className="bg-blob bg-blob-peach" aria-hidden="true" />
+      <div className="bg-blob bg-blob-pink" aria-hidden="true" />
+      <div className="bg-blob bg-blob-azure" aria-hidden="true" />
       <Header
         cacheStats={cacheStats}
         onToggleSidebar={() => setSidebarOpen((open) => !open)}
@@ -81,11 +84,11 @@ export default function App() {
           {phase === 'loading' && <LoadingState />}
 
           {phase === 'error' && (
-            <div className="mt-8 flex items-start gap-3 rounded-2xl border border-rose-900/60 bg-rose-950/40 p-4 text-rose-200">
+            <div className="mt-8 flex animate-fade-up items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-600">
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
-                <p className="font-medium">Something went wrong</p>
-                <p className="mt-1 text-sm text-rose-300/80">{error}</p>
+                <p className="font-medium text-rose-700">Something went wrong</p>
+                <p className="mt-1 text-sm">{error}</p>
               </div>
             </div>
           )}

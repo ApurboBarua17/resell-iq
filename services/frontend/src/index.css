@@ -3,9 +3,71 @@
 @tailwind utilities;
 
 body {
-  @apply bg-slate-950 text-slate-100 antialiased;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.16), transparent),
-    radial-gradient(ellipse 60% 50% at 85% 115%, rgba(139, 92, 246, 0.09), transparent);
-  background-attachment: fixed;
+  @apply bg-[#fafafa] text-neutral-900 antialiased;
+}
+
+/* Soft drifting gradient blobs behind the content (see App.jsx) */
+.bg-blob {
+  @apply pointer-events-none fixed -z-10 rounded-full blur-3xl;
+}
+
+.bg-blob-peach {
+  top: -12%;
+  right: -8%;
+  width: 55vw;
+  height: 55vw;
+  background: radial-gradient(circle, rgba(255, 196, 170, 0.45), transparent 65%);
+  animation: blob-drift-a 26s ease-in-out infinite alternate;
+}
+
+.bg-blob-pink {
+  bottom: -18%;
+  left: -12%;
+  width: 50vw;
+  height: 50vw;
+  background: radial-gradient(circle, rgba(222, 164, 194, 0.35), transparent 65%);
+  animation: blob-drift-b 22s ease-in-out infinite alternate;
+}
+
+.bg-blob-azure {
+  top: 35%;
+  left: 55%;
+  width: 38vw;
+  height: 38vw;
+  background: radial-gradient(circle, rgba(0, 153, 255, 0.09), transparent 65%);
+  animation: blob-drift-c 30s ease-in-out infinite alternate;
+}
+
+@keyframes blob-drift-a {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-10%, 8%) scale(1.18);
+  }
+}
+
+@keyframes blob-drift-b {
+  from {
+    transform: translate(0, 0) scale(1.1);
+  }
+  to {
+    transform: translate(12%, -9%) scale(0.95);
+  }
+}
+
+@keyframes blob-drift-c {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-14%, -10%) scale(1.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bg-blob,
+  .animate-fade-up {
+    animation: none;
+  }
 }
