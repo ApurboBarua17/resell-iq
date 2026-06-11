@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: resell-config
+  namespace: resell-iq
+data:
+  REDIS_HOST: redis-service
+  DATABASE_URL: postgresql://resellid:resellid@postgres-service:5432/resellid
+  AZURE_MODEL_DEPLOYMENT: gpt-4o-mini
+  EBAY_ENV: SANDBOX

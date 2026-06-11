@@ -1,0 +1,27 @@
+# Fixed worker pool — deliberately NO HorizontalPodAutoscaler / KEDA.
+# This workload has no bursty queue spikes; 3 replicas are sized for
+# expected concurrent load. See README "Why this architecture".
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pricing-worker
+  namespace: resell-iq
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: pricing-worker
+  template:
+    metadata:
+      labels:
+        app: pricing-worker
+    spec:
+      containers:
+        - name: pricing-worker
+          image: resell-iq/pricing-worker:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: resell-config
+            - secretRef:
+                name: resell-secrets

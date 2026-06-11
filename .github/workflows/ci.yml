@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check services/
+
+  validate-k8s:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate manifests (client-side dry run)
+        run: |
+          curl -sLo kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          tar xzf kubeconform.tar.gz kubeconform
+          ./kubeconform -summary -strict kubernetes/
+
+  docker-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api-gateway, pricing-worker, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build services/${{ matrix.service }}
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+        working-directory: services/frontend
+      - run: npm run build
+        working-directory: services/frontend
