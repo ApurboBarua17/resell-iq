@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AlertCircle } from 'lucide-react'
 import Header from './components/Header.jsx'
 import ModeSwitcher, { MODES } from './components/ModeSwitcher.jsx'
@@ -14,13 +15,12 @@ import ComparableListings from './components/ComparableListings.jsx'
 import HistorySidebar from './components/HistorySidebar.jsx'
 import { search, pollResult, getHistory, getCacheStats } from './api.js'
 
-function initialMode() {
-  const requested = new URLSearchParams(window.location.search).get('mode')
-  return MODES.some((m) => m.id === requested) ? requested : 'electronics'
-}
-
 export default function App() {
-  const [mode, setMode] = useState(initialMode)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedMode = searchParams.get('mode')
+  const mode = MODES.some((m) => m.id === requestedMode)
+    ? requestedMode
+    : 'electronics'
   const [phase, setPhase] = useState('idle') // idle | loading | done | error
   const [result, setResult] = useState(null)
   const [cached, setCached] = useState(false)
@@ -45,13 +45,10 @@ export default function App() {
   }, [refreshMeta])
 
   function changeMode(nextMode) {
-    setMode(nextMode)
     setPhase('idle')
     setResult(null)
     setError(null)
-    const url = new URL(window.location)
-    url.searchParams.set('mode', nextMode)
-    window.history.replaceState(null, '', url)
+    setSearchParams({ mode: nextMode }, { replace: true })
   }
 
   async function handleSearch(fields) {
@@ -85,9 +82,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <div className="bg-blob bg-blob-peach" aria-hidden="true" />
-      <div className="bg-blob bg-blob-pink" aria-hidden="true" />
-      <div className="bg-blob bg-blob-azure" aria-hidden="true" />
       <Header
         cacheStats={cacheStats}
         onToggleSidebar={() => setSidebarOpen((open) => !open)}

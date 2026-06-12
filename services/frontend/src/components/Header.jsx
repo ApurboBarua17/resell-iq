@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { PanelLeft, Tag, Zap } from 'lucide-react'
 
 export default function Header({ cacheStats, onToggleSidebar }) {
@@ -11,14 +12,14 @@ export default function Header({ cacheStats, onToggleSidebar }) {
         >
           <PanelLeft className="h-5 w-5" />
         </button>
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <span className="rounded-lg bg-neutral-900 p-1.5">
             <Tag className="h-4 w-4 text-white" />
           </span>
           <span className="text-lg font-semibold tracking-tight text-neutral-900">
             Resell<span className="text-azure">IQ</span>
           </span>
-        </div>
+        </Link>
         <div className="ml-auto">
           {cacheStats?.total > 0 && (
             <span className="flex items-center gap-1.5 rounded-full border border-black/[0.06] bg-white px-3 py-1 font-mono text-[11px] text-neutral-500">
