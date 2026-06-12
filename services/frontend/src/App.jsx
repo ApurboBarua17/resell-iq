@@ -5,6 +5,10 @@ import ModeSwitcher, { MODES } from './components/ModeSwitcher.jsx'
 import SearchForm from './components/SearchForm.jsx'
 import LoadingState from './components/LoadingState.jsx'
 import PriceRangeCard from './components/PriceRangeCard.jsx'
+import RetentionGauge from './components/RetentionGauge.jsx'
+import PriceDistributionHistogram from './components/PriceDistributionHistogram.jsx'
+import PriceBySizeChart from './components/PriceBySizeChart.jsx'
+import MarketTypeComparison from './components/MarketTypeComparison.jsx'
 import ListingPreview from './components/ListingPreview.jsx'
 import ComparableListings from './components/ComparableListings.jsx'
 import HistorySidebar from './components/HistorySidebar.jsx'
@@ -125,6 +129,19 @@ export default function App() {
                 advice={result.advice}
                 cached={cached}
               />
+              {result.mode === 'electronics' && (
+                <RetentionGauge
+                  retentionPct={result.retention_pct}
+                  retail={result.retail_reference}
+                />
+              )}
+              {result.mode === 'sneakers' && (
+                <PriceBySizeChart listings={result.comparables} />
+              )}
+              {result.mode === 'vintage' && (
+                <MarketTypeComparison breakdown={result.source_breakdown} />
+              )}
+              <PriceDistributionHistogram listings={result.comparables} />
               <ListingPreview advice={result.advice} />
               <ComparableListings listings={result.comparables} />
             </div>
