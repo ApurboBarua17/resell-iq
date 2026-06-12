@@ -19,8 +19,9 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS search_jobs (
     job_id TEXT PRIMARY KEY,
     query_hash TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'electronics',
     item_description TEXT NOT NULL,
-    condition TEXT NOT NULL,
+    condition TEXT,
     category TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     result JSONB,
@@ -29,8 +30,9 @@ CREATE TABLE IF NOT EXISTS search_jobs (
 CREATE TABLE IF NOT EXISTS search_history (
     id SERIAL PRIMARY KEY,
     query_hash TEXT NOT NULL,
+    mode TEXT NOT NULL DEFAULT 'electronics',
     item_description TEXT NOT NULL,
-    condition TEXT NOT NULL,
+    condition TEXT,
     result JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -54,13 +56,13 @@ def init_schema(retries=15, delay=2):
             time.sleep(delay)
 
 
-def insert_pending_job(job_id, query_hash, item_description, condition, category):
+def insert_pending_job(job_id, query_hash, mode, item_description, condition, category):
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
             """INSERT INTO search_jobs
-                   (job_id, query_hash, item_description, condition, category)
-               VALUES (%s, %s, %s, %s, %s)""",
-            (job_id, query_hash, item_description, condition, category),
+                   (job_id, query_hash, mode, item_description, condition, category)
+               VALUES (%s, %s, %s, %s, %s, %s)""",
+            (job_id, query_hash, mode, item_description, condition, category),
         )
 
 
@@ -76,7 +78,8 @@ def get_job(job_id):
 def get_history(limit=10):
     with _connect() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
-            """SELECT id, query_hash, item_description, condition, result, created_at
+            """SELECT id, query_hash, mode, item_description, condition, result,
+                      created_at
                FROM search_history ORDER BY created_at DESC LIMIT %s""",
             (limit,),
         )

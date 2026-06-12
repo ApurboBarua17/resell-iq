@@ -16,7 +16,7 @@ import redis
 
 import database
 import pricing_advisor
-from sources import ebay_source
+from sources import ebay_source, etsy_source
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("pricing-worker")
@@ -91,28 +91,97 @@ def get_redis():
     )
 
 
+def fetch_listings(job):
+    """Mode dispatch → (comp_listings, retail_references, source_meta)."""
+    mode = job.get("mode", "electronics")
+    if mode == "electronics":
+        comps, retail = fetch_electronics(job["item_description"])
+        return comps, retail, {}
+    if mode == "sneakers":
+        listings, meta = ebay_source.search_sneakers(
+            job["brand"], job["model"], job.get("size"), job.get("condition")
+        )
+        return listings, [], meta
+    if mode == "vintage":
+        results = asyncio.run(
+            _gather_named(
+                [
+                    ("ebay", lambda: ebay_source.search_active_listings(job["item_description"])),
+                    ("etsy", lambda: etsy_source.search(job["item_description"])),
+                ]
+            )
+        )
+        return results["ebay"] + results["etsy"], [], {}
+    raise ValueError(f"unknown mode: {mode}")
+
+
+def describe_job(job):
+    if job.get("mode") == "sneakers":
+        desc = f"{job.get('brand', '')} {job.get('model', '')}".strip()
+        if job.get("size"):
+            desc += f" (size {job['size']})"
+        return desc
+    return job.get("item_description", "")
+
+
 def process_job(r, job):
-    listings = ebay_source.search_active_listings(
-        job["item_description"], job.get("condition")
-    )
-    listing_dicts = [listing.to_dict() for listing in listings]
-    stats = pricing_advisor.compute_price_stats(listing_dicts)
+    mode = job.get("mode", "electronics")
+    comps, retail_refs, source_meta = fetch_listings(job)
+
+    # Belt-and-braces for risk flag 2: stats only ever see non-retail comps.
+    comp_dicts = [
+        listing.to_dict() for listing in comps if not listing.is_retail_reference
+    ]
+    stats = pricing_advisor.compute_price_stats(comp_dicts)
+
+    description = describe_job(job)
     advice = pricing_advisor.get_pricing_advice(
-        job["item_description"], job["condition"], stats
+        description, job.get("condition"), stats, mode=mode, listings=comp_dicts
     )
 
     result = {
-        "item_description": job["item_description"],
-        "condition": job["condition"],
+        "mode": mode,
+        "item_description": description,
+        "condition": job.get("condition"),
         "category": job.get("category"),
+        "size": job.get("size"),
+        "era": job.get("era"),
         "stats": stats,
-        "comparables": listing_dicts[:10],
+        "comparables": comp_dicts[:10],
         "advice": advice,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
+    if mode == "electronics":
+        retail_dicts = [listing.to_dict() for listing in retail_refs]
+        retail_stats = pricing_advisor.compute_price_stats(retail_dicts)
+        if retail_stats["count"] > 0:
+            result["retail_reference"] = {
+                "median": retail_stats["median"],
+                "count": retail_stats["count"],
+            }
+        retention = compute_retention_pct(stats, retail_stats)
+        if retention is not None:
+            result["retention_pct"] = retention
+
+    if mode == "sneakers" and source_meta.get("size_path"):
+        result["size_meta"] = source_meta
+
+    if mode == "vintage":
+        breakdown = {}
+        for source_name in ("ebay", "etsy"):
+            source_comps = [c for c in comp_dicts if c["source"] == source_name]
+            source_stats = pricing_advisor.compute_price_stats(source_comps)
+            if source_stats["count"] > 0:
+                breakdown[source_name] = {
+                    "median": source_stats["median"],
+                    "count": source_stats["count"],
+                }
+        if breakdown:
+            result["source_breakdown"] = breakdown
+
     database.insert_search_history(
-        job["query_hash"], job["item_description"], job["condition"], result
+        job["query_hash"], mode, description, job.get("condition"), result
     )
     r.set(f"cache:{job['query_hash']}", json.dumps(result), ex=CACHE_TTL)
     database.mark_job_complete(job["job_id"], result)

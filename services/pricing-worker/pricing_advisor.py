@@ -81,16 +81,63 @@ Rules:
 """
 
 
-def get_pricing_advice(item_description, condition, stats):
+def _mode_notes(mode, listings):
+    """Extra system-prompt guidance per mode (Phase 11)."""
+    notes = []
+    if mode == "sneakers":
+        sizes = sorted(
+            {
+                listing.get("extra", {}).get("size")
+                for listing in (listings or [])
+            }
+            - {None}
+        )
+        if sizes:
+            notes.append(
+                "This is the sneaker resale market — prices are size-sensitive "
+                f"(comparables include sizes: {', '.join(sizes)}). Note any "
+                "size-driven pricing in the reasoning."
+            )
+        else:
+            notes.append(
+                "This is the sneaker resale market; condition uses the "
+                "Deadstock / New with Defects / Used grading scale."
+            )
+    if mode == "vintage":
+        sources = {listing.get("source") for listing in (listings or [])}
+        if {"ebay", "etsy"} <= sources:
+            notes.append(
+                "Comparables come from both a general marketplace (eBay) and a "
+                "curated vintage marketplace (Etsy). Curated listings often "
+                "price higher — comment on the marketplace-vs-curated spread "
+                "in the reasoning."
+            )
+        else:
+            notes.append(
+                "This is a vintage/collectible item; rarity and era matter "
+                "more than mint condition."
+            )
+    return notes
+
+
+def get_pricing_advice(item_description, condition, stats, mode="electronics", listings=None):
+    system_prompt = SYSTEM_PROMPT
+    notes = _mode_notes(mode, listings)
+    if notes:
+        system_prompt += "\nMode-specific guidance:\n" + "\n".join(
+            f"- {note}" for note in notes
+        )
+
     user_msg = json.dumps(
         {
+            "mode": mode,
             "item_description": item_description,
             "condition": condition,
             "comparable_price_stats": stats,
         }
     )
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_msg},
     ]
     model = os.getenv("AZURE_MODEL_DEPLOYMENT", "gpt-4o-mini")

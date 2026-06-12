@@ -55,11 +55,11 @@ def mark_job_failed(job_id, error):
         )
 
 
-def insert_search_history(query_hash, item_description, condition, result):
+def insert_search_history(query_hash, mode, item_description, condition, result):
     with _connect() as conn, conn.cursor() as cur:
         cur.execute(
             """INSERT INTO search_history
-                   (query_hash, item_description, condition, result)
-               VALUES (%s, %s, %s, %s)""",
-            (query_hash, item_description, condition, Json(result)),
+                   (query_hash, mode, item_description, condition, result)
+               VALUES (%s, %s, %s, %s, %s)""",
+            (query_hash, mode, item_description, condition, Json(result)),
         )

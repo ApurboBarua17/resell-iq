@@ -15,15 +15,13 @@ async function asJson(res, label) {
   return res.json()
 }
 
-export async function search(itemDescription, condition, category) {
+// payload is mode-shaped: {mode, item_description?, condition?, category?,
+// brand?, model?, size?, era?} — the gateway validates per mode.
+export async function search(payload) {
   const res = await fetch('/api/search', {
     method: 'POST',
     headers,
-    body: JSON.stringify({
-      item_description: itemDescription,
-      condition,
-      category: category || null,
-    }),
+    body: JSON.stringify(payload),
   })
   return asJson(res, 'search')
 }

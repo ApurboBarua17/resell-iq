@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AlertCircle } from 'lucide-react'
 import Header from './components/Header.jsx'
+import ModeSwitcher, { MODES } from './components/ModeSwitcher.jsx'
 import SearchForm from './components/SearchForm.jsx'
 import LoadingState from './components/LoadingState.jsx'
 import PriceRangeCard from './components/PriceRangeCard.jsx'
@@ -9,7 +10,13 @@ import ComparableListings from './components/ComparableListings.jsx'
 import HistorySidebar from './components/HistorySidebar.jsx'
 import { search, pollResult, getHistory, getCacheStats } from './api.js'
 
+function initialMode() {
+  const requested = new URLSearchParams(window.location.search).get('mode')
+  return MODES.some((m) => m.id === requested) ? requested : 'electronics'
+}
+
 export default function App() {
+  const [mode, setMode] = useState(initialMode)
   const [phase, setPhase] = useState('idle') // idle | loading | done | error
   const [result, setResult] = useState(null)
   const [cached, setCached] = useState(false)
@@ -33,12 +40,22 @@ export default function App() {
     refreshMeta()
   }, [refreshMeta])
 
-  async function handleSearch(itemDescription, condition, category) {
+  function changeMode(nextMode) {
+    setMode(nextMode)
+    setPhase('idle')
+    setResult(null)
+    setError(null)
+    const url = new URL(window.location)
+    url.searchParams.set('mode', nextMode)
+    window.history.replaceState(null, '', url)
+  }
+
+  async function handleSearch(fields) {
     setPhase('loading')
     setError(null)
     setResult(null)
     try {
-      const res = await search(itemDescription, condition, category)
+      const res = await search({ mode, ...fields })
       if (res.cached) {
         setResult(res.result)
         setCached(true)
@@ -79,7 +96,15 @@ export default function App() {
           onSelect={showHistoryEntry}
         />
         <main className="mx-auto w-full max-w-3xl px-4 pb-24 pt-8">
-          <SearchForm onSubmit={handleSearch} loading={phase === 'loading'} />
+          <div className="mb-6 animate-fade-up">
+            <ModeSwitcher mode={mode} onChange={changeMode} />
+          </div>
+          <SearchForm
+            key={mode}
+            mode={mode}
+            onSubmit={handleSearch}
+            loading={phase === 'loading'}
+          />
 
           {phase === 'loading' && <LoadingState />}
 

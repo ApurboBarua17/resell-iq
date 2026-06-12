@@ -44,7 +44,12 @@ export default function HistorySidebar({ open, onClose, history, onSelect }) {
                   {entry.item_description}
                 </p>
                 <div className="mt-1 flex items-center gap-2 text-xs text-neutral-400">
-                  <span>{entry.condition}</span>
+                  {entry.mode && entry.mode !== 'electronics' && (
+                    <span className="rounded-full border border-black/[0.08] bg-neutral-50 px-1.5 py-0.5 text-[10px] capitalize">
+                      {entry.mode}
+                    </span>
+                  )}
+                  {entry.condition && <span>{entry.condition}</span>}
                   {entry.result?.advice?.recommended_price != null && (
                     <span className="font-medium text-azure">
                       ${entry.result.advice.recommended_price}
