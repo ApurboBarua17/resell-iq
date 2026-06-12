@@ -4,10 +4,12 @@ Per job: eBay comparables → price stats → LLM advice → Postgres history �
 Redis cache write (cache-aside, TTL 1h) → job marked complete.
 """
 
+import asyncio
 import json
 import logging
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import redis
@@ -21,6 +23,64 @@ logger = logging.getLogger("pricing-worker")
 
 QUEUE_NAME = "pricing_jobs"
 CACHE_TTL = 3600
+CALL_TIMEOUT = 8  # seconds per upstream source call (risk flag 4)
+
+# Dedicated executor for source calls: asyncio.run() joins the *default*
+# executor's threads on shutdown, so a timed-out (uncancellable) call would
+# stall the job until its socket gave up. Threads here are left to finish in
+# the background instead, bounded by each call's own requests timeout.
+_source_executor = ThreadPoolExecutor(max_workers=8)
+
+
+async def _gather_named(calls):
+    """Run sync source calls concurrently, each with its own timeout.
+
+    One slow or failing call never fails the batch (risk flags 3, 4) — it
+    just contributes an empty list. `calls` is [(name, zero-arg fn), ...];
+    returns {name: list[NormalizedListing]}.
+    """
+    loop = asyncio.get_running_loop()
+
+    async def run_one(name, fn):
+        try:
+            future = loop.run_in_executor(_source_executor, fn)
+            return name, await asyncio.wait_for(future, CALL_TIMEOUT)
+        except Exception as exc:
+            logger.warning("source call '%s' failed: %s", name, exc)
+            return name, []
+
+    pairs = await asyncio.gather(*(run_one(name, fn) for name, fn in calls))
+    return dict(pairs)
+
+
+def fetch_electronics(query):
+    """Electronics mode: parallel eBay New + Used searches.
+
+    Returns (comp_listings, retail_references). Retail "New" results stay
+    separate and must never be merged into comp stats (risk flag 2).
+    """
+    results = asyncio.run(
+        _gather_named(
+            [
+                ("retail_new", lambda: ebay_source.search_with_condition(query, "new")),
+                ("used_comps", lambda: ebay_source.search_with_condition(query, "used")),
+            ]
+        )
+    )
+    return results["used_comps"], results["retail_new"]
+
+
+def compute_retention_pct(comp_stats, retail_stats):
+    """Share of the eBay-New median retained by used comps, e.g. 62.5.
+
+    None (field omitted, not zero) when either side lacks a median —
+    e.g. the New search came back empty (risk flag 9).
+    """
+    used_median = comp_stats.get("median")
+    new_median = retail_stats.get("median")
+    if not used_median or not new_median:
+        return None
+    return round(used_median / new_median * 100, 1)
 
 
 def get_redis():

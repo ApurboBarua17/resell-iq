@@ -27,6 +27,15 @@ CONDITION_IDS = {
     "poor": "7000",
 }
 
+# Electronics-mode condition groups (risk flag 1: this New-vs-Used split is
+# its own mapping — not the five general-mode labels above, and not reusable
+# for sneakers/vintage). Refurbished IDs (2000–2500) are excluded from both
+# groups: neither retail-new nor a clean used comp.
+CONDITION_GROUPS = {
+    "new": "1000|1500",
+    "used": "2750|3000|4000|5000|6000",
+}
+
 _token = {"value": None, "expires_at": 0.0}
 
 
@@ -76,6 +85,24 @@ def search_active_listings(query, condition=None, limit=50):
     if not listings and "filter" in params:
         del params["filter"]
         listings = _search(params)
+    return listings
+
+
+def search_with_condition(query, condition_group, limit=50):
+    """Electronics-mode search pinned to a condition group ("new" | "used").
+
+    "new" results are marked is_retail_reference=True so they can never leak
+    into comp stats (risk flag 2). Unlike search_active_listings there is
+    deliberately NO unfiltered retry: a pinned condition group that returns
+    nothing must stay empty rather than silently mixing conditions.
+    """
+    ids = CONDITION_GROUPS[condition_group]
+    listings = _search(
+        {"q": query, "limit": limit, "filter": f"conditionIds:{{{ids}}}"}
+    )
+    if condition_group == "new":
+        for listing in listings:
+            listing.is_retail_reference = True
     return listings
 
 
