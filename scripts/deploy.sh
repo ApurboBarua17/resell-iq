@@ -24,6 +24,7 @@ kubectl create secret generic resell-secrets \
   --from-literal=GITHUB_TOKEN="${GITHUB_TOKEN:?GITHUB_TOKEN missing in .env}" \
   --from-literal=EBAY_CLIENT_ID="${EBAY_CLIENT_ID:?EBAY_CLIENT_ID missing in .env}" \
   --from-literal=EBAY_CLIENT_SECRET="${EBAY_CLIENT_SECRET:?EBAY_CLIENT_SECRET missing in .env}" \
+  --from-literal=ETSY_API_KEY="${ETSY_API_KEY:?ETSY_API_KEY missing in .env}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl apply -R -f "$ROOT/kubernetes/redis"
