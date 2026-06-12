@@ -13,8 +13,8 @@ from datetime import datetime, timezone
 import redis
 
 import database
-import ebay_client
 import pricing_advisor
+from sources import ebay_source
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("pricing-worker")
@@ -32,10 +32,11 @@ def get_redis():
 
 
 def process_job(r, job):
-    listings = ebay_client.search_active_listings(
+    listings = ebay_source.search_active_listings(
         job["item_description"], job.get("condition")
     )
-    stats = pricing_advisor.compute_price_stats(listings)
+    listing_dicts = [listing.to_dict() for listing in listings]
+    stats = pricing_advisor.compute_price_stats(listing_dicts)
     advice = pricing_advisor.get_pricing_advice(
         job["item_description"], job["condition"], stats
     )
@@ -45,7 +46,7 @@ def process_job(r, job):
         "condition": job["condition"],
         "category": job.get("category"),
         "stats": stats,
-        "comparables": listings[:10],
+        "comparables": listing_dicts[:10],
         "advice": advice,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }

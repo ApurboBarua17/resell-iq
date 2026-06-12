@@ -1,7 +1,8 @@
-"""eBay Browse API client (OAuth2 client credentials flow).
+"""eBay Browse API source (OAuth2 client credentials flow).
 
 EBAY_ENV=SANDBOX|PRODUCTION selects the host. Tokens last ~2 hours and are
-cached in memory, refreshed 60s before expiry.
+cached in memory, refreshed 60s before expiry. All results are returned as
+NormalizedListing.
 """
 
 import base64
@@ -11,11 +12,13 @@ import time
 
 import requests
 
+from sources.base import NormalizedListing
+
 logger = logging.getLogger(__name__)
 
 SCOPE = "https://api.ebay.com/oauth/api_scope"
 
-# Browse API conditionIds, mapped from the five UI condition labels.
+# Browse API conditionIds, mapped from the five general-mode UI labels.
 CONDITION_IDS = {
     "new": "1000|1500",
     "like new": "1750|2000|2500|2750",
@@ -58,7 +61,7 @@ def get_access_token():
 
 
 def search_active_listings(query, condition=None, limit=50):
-    """Search active listings → [{title, price, condition, itemWebUrl}].
+    """Search active listings → list[NormalizedListing].
 
     Empty results (common on sandbox) return [] rather than raising. If the
     condition filter yields nothing, retries once unfiltered so the worker
@@ -96,11 +99,16 @@ def _search(params):
         if price is None:
             continue
         listings.append(
-            {
-                "title": item.get("title", ""),
-                "price": float(price),
-                "condition": item.get("condition", "Unspecified"),
-                "itemWebUrl": item.get("itemWebUrl", ""),
-            }
+            NormalizedListing(
+                source="ebay",
+                title=item.get("title", ""),
+                price=float(price),
+                currency=item.get("price", {}).get("currency", "USD"),
+                condition=item.get("condition", "Unspecified"),
+                url=item.get("itemWebUrl", ""),
+                image_url=(item.get("image") or {}).get("imageUrl"),
+                is_retail_reference=False,
+                extra={},
+            )
         )
     return listings

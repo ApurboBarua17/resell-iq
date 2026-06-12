@@ -20,12 +20,12 @@ export default function ComparableListings({ listings }) {
           <tbody>
             {listings.map((listing, index) => (
               <tr
-                key={`${listing.itemWebUrl}-${index}`}
+                key={`${listing.url}-${index}`}
                 className="border-b border-black/[0.04] transition-colors duration-200 last:border-0 hover:bg-neutral-50"
               >
                 <td className="max-w-md py-2.5 pr-4">
                   <a
-                    href={listing.itemWebUrl}
+                    href={listing.url}
                     target="_blank"
                     rel="noreferrer"
                     className="group flex items-start gap-1.5 text-neutral-700 transition hover:text-azure"
