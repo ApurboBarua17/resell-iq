@@ -8,6 +8,7 @@ NormalizedListing.
 import base64
 import logging
 import os
+import re
 import time
 
 import requests
@@ -35,6 +36,20 @@ CONDITION_GROUPS = {
     "new": "1000|1500",
     "used": "2750|3000|4000|5000|6000",
 }
+
+# Sneaker condition scale (risk flag 1: distinct from both mappings above —
+# sneaker culture grades differently than general electronics).
+SNEAKER_CONDITION_IDS = {
+    "deadstock/new": "1000|1500",
+    "new with defects": "1750",
+    "used": "2750|3000|4000|5000|6000",
+}
+
+SNEAKERS_CATEGORY_ID = "15709"  # Athletic Shoes — aspect filters are category-scoped
+
+# Sizes quoted in listing titles, e.g. "size 10.5" / "Sz 9" — the summaries
+# API doesn't expose per-item aspects, so titles are the best size signal.
+_SIZE_IN_TITLE = re.compile(r"(?:size|sz)\.?\s*([0-9]{1,2}(?:\.5)?)\b", re.IGNORECASE)
 
 _token = {"value": None, "expires_at": 0.0}
 
@@ -104,6 +119,57 @@ def search_with_condition(query, condition_group, limit=50):
         for listing in listings:
             listing.is_retail_reference = True
     return listings
+
+
+def search_sneakers(brand, model, size=None, condition=None, limit=50):
+    """Sneaker-mode search → (listings, meta).
+
+    meta["size_path"] records how the size was applied (risk flag 5 — eBay's
+    Shoe Size aspect is category-specific and fragile):
+      "aspect_filter" — the structured aspect matched
+      "text_fallback" — aspect returned 0 results; size folded into the query
+      None            — no size requested
+    """
+    query = f"{brand} {model}".strip()
+    base_params = {"q": query, "limit": limit}
+    condition_ids = SNEAKER_CONDITION_IDS.get((condition or "").lower())
+    if condition_ids:
+        base_params["filter"] = f"conditionIds:{{{condition_ids}}}"
+
+    size_path = None
+    if size:
+        params = dict(base_params)
+        params["category_ids"] = SNEAKERS_CATEGORY_ID
+        params["aspect_filter"] = (
+            f"categoryId:{SNEAKERS_CATEGORY_ID},US Shoe Size:{{{size}}}"
+        )
+        listings = _search(params)
+        if listings:
+            size_path = "aspect_filter"
+        else:
+            params = dict(base_params)
+            params["q"] = f"{query} size {size}"
+            listings = _search(params)
+            size_path = "text_fallback"
+            logger.info(
+                "sneaker size aspect filter returned 0 for %s (size %s); "
+                "fell back to text query",
+                query,
+                size,
+            )
+    else:
+        listings = _search(base_params)
+
+    for listing in listings:
+        title_match = _SIZE_IN_TITLE.search(listing.title)
+        if title_match:
+            listing.extra["size"] = title_match.group(1)
+        elif size and size_path == "aspect_filter":
+            # Aspect-matched results are all the requested size even when the
+            # title doesn't repeat it.
+            listing.extra["size"] = str(size)
+
+    return listings, {"size_path": size_path}
 
 
 def _search(params):
